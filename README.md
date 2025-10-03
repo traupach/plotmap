@@ -1,2 +1,4 @@
 # plotmap
-Functions to aid in plotting maps with matplotlib and cartopy
+Module providing functions to flexibly plot maps using matplotlib and cartopy.
+
+By Tim Raupach <t.raupach@unsw.edu.au>

@@ -54,7 +54,6 @@ def plot_map_to_ax(
     tick_labels=None,
     contour=False,
     stippling=None,
-    stipple_size=3,
     colourbar=True,
     ticks_left=True,
     ticks_bottom=True,
@@ -71,17 +70,19 @@ def plot_map_to_ax(
     divergent=False,
     cbar_inset=False,
     title_inset=False,
+    title_inset_pos='upper',
     discrete=False,
     log_scale=False,
     nan_colour='#eeeeee',
     axis_off=False,
     country=None,
     annotations=None,
+    num_contours=10,
     polygons=None,
     polygon_colour='black',
-    hatch='.',
     pts=None,
     left_title=None,
+    cbar_extend='neither',
 ):
     """Plot data on a map to a specified plot axis object.
 
@@ -101,7 +102,6 @@ def plot_map_to_ax(
         tick_labels: Colour bar tick labels.
         contour: Plot using xarray's contourf function?
         stippling: True where trippling should appear.
-        stipple_size: Size for stippling points.
         colourbar: Include a colourbar?
         ticks_left: Include ticks on left of plot?
         ticks_bottom: Include ticks on bottom of plot?
@@ -118,6 +118,7 @@ def plot_map_to_ax(
         divergent: Is the colour scale divergent? If so make zero central.
         cbar_inset: Inset the colorbar in lower left?
         title_inset: Inset the title in the upper left?
+        title_inset_pos: 'lower' or 'upper'.
         discrete: Make the colour bar discrete?
         log_scale: Make the colour scale log-scaled?
         nan_colour: Colour for missing values.
@@ -126,6 +127,7 @@ def plot_map_to_ax(
         annotations: Add annotations to the map - dictionary of {'Text': [x, y, xadj, yadj, ha]} where
                      x, y are position of text, xadj, yadj give offsets to the label, ha is 'left' or
                      'right' for horizontal anchor.
+        num_contours: Number of contours to draw (default: 10).
         polygons: If specified, draw each polygon onto the plot.
         polygon_colour: Colour for polygons.
         hatch: Hatching to use for stippling ('.' for scatterplot, '//' etc for contour hatching).
@@ -133,6 +135,7 @@ def plot_map_to_ax(
         disp_proj: Projection to plot in.
         left_title: Put titles to left instead of centre?
         pts: Extra points to plot.
+        cbar_extend: colorbar extend argument.
 
     """
     col_min = None
@@ -177,6 +180,7 @@ def plot_map_to_ax(
         'pad': cbar_pad,
         'orientation': cbar_orientation,
         'format': '%g',
+        'extend': cbar_extend,
     }
 
     if cbar_inset:
@@ -212,6 +216,13 @@ def plot_map_to_ax(
             zorder=-10,
         )
     else:
+        if col_min is not None:
+            col_min = np.floor(col_min)
+            col_max = np.ceil(col_max)
+            levs = np.linspace(col_min, col_max, num_contours, dtype=np.int64)
+        else:
+            levs = num_contours
+
         res = dat.plot.contourf(
             ax=ax,
             transform=dat_proj,
@@ -221,44 +232,64 @@ def plot_map_to_ax(
             norm=norm,
             cbar_kwargs=cbar_args,
             add_colorbar=colourbar,
+            levels=levs,
         )
 
     if stippling is not None:
         ax.autoscale(False)  # noqa: FBT003
-        if hatch == '.':
-            pts = stippling.where(stippling).to_dataframe().dropna().reset_index()
-            ax.scatter(
-                x=pts[stippling.dims[1]],
-                y=pts[stippling.dims[0]],
-                marker='.',
-                color='black',
-                transform=dat_proj,
-                s=stipple_size,
-            )
-        else:
-            stippling.plot.contourf(hatches=['', hatch], levels=[0, 0.5, 1], colors='none', ax=ax, add_colorbar=False)
+        hatches = [None, '\\\\\\']
+        if np.all(stippling is True):
+            hatches = ['\\\\\\', '\\\\\\']
+        stippling.plot.contourf(
+            transform=dat_proj,
+            ax=ax,
+            add_colorbar=False,
+            levels=3,
+            colors='none',
+            hatches=hatches,
+        )
 
     if xlims is not None:
         ax.set_xlim(xlims)
     if ylims is not None:
         ax.set_ylim(ylims)
-    if tick_labels is not None:
+    if colourbar is True and tick_labels is not None:
         assert len(tick_labels) == len(cbar_ticks), 'Labels and ticks must have same length'
         res.colorbar.ax.set_yticklabels(tick_labels)
     if left_title is not None:
         if title_inset:
-            title = f'{left_title} {title}'
+            title = f'{left_title} {title if title is not None else ""}'
         else:
             ax.set_title(left_title, fontsize=plt.rcParams['font.size'], loc='left')
     if title is not None:
         if title_inset:
-            ax.annotate(
-                text=title,
-                xy=(0.05, 0.9),
-                xycoords='axes fraction',
-                fontweight='bold',
-                fontsize=plt.rcParams['font.size'],
-            )
+            ax.set_title('')
+            if title_inset_pos == 'upper':
+                ax.annotate(
+                    text=title,
+                    xy=(0.05, 0.9),
+                    xycoords='axes fraction',
+                    fontweight='bold',
+                    fontsize=plt.rcParams['font.size'],
+                )
+            elif title_inset_pos == 'lower':
+                ax.annotate(
+                    text=title,
+                    xy=(0.05, 0.07),
+                    xycoords='axes fraction',
+                    fontweight='bold',
+                    fontsize=plt.rcParams['font.size'],
+                )
+            elif title_inset_pos == 'left_lower':
+                ax.annotate(
+                    text=title.replace(')', ''),
+                    xy=(0.01, 0.01),
+                    xycoords='axes fraction',
+                    fontweight='bold',
+                    fontsize=plt.rcParams['font.size'],
+                )
+            else:
+                assert 1 == 0, 'title_inset_pos must be upper or lower or left_lower.'  # noqa: PLR0133
         else:
             ax.set_title(title, fontsize=plt.rcParams['font.size'])
     if polygons is not None:
@@ -266,7 +297,11 @@ def plot_map_to_ax(
         ax.add_geometries(poly, crs=ccrs.PlateCarree(), facecolor='none', edgecolor=polygon_colour, linewidth=1.75)
     if coastlines:
         if country is not None:
-            shpfilename = shapereader.natural_earth(resolution='10m', category='cultural', name='admin_0_countries')
+            shpfilename = shapereader.natural_earth(
+                resolution='10m',
+                category='cultural',
+                name='admin_0_countries',
+            )
             df = geopandas.read_file(shpfilename)
             poly = df.loc[df['ADMIN'] == country]['geometry'].values[0]
             ax.add_geometries(
@@ -282,7 +317,13 @@ def plot_map_to_ax(
         locator = None
         if num_ticks is not None:
             locator = mticker.MaxNLocator(nbins=num_ticks + 1)
-        gl = ax.gridlines(crs=disp_proj, draw_labels=True, alpha=0.5, xlocs=locator, ylocs=locator)
+        gl = ax.gridlines(
+            crs=disp_proj,
+            draw_labels=True,
+            alpha=0.5,
+            xlocs=locator,
+            ylocs=locator,
+        )
         gl.top_labels = gl.right_labels = False
         gl.left_labels = ticks_left
         gl.bottom_labels = ticks_bottom
@@ -297,11 +338,21 @@ def plot_map_to_ax(
         for text, [x, y, xadj, yadj, ha] in annotations.items():
             if np.abs(xadj) >= 1 or np.abs(yadj) >= 1:
                 if ha in ('right', 'left'):
-                    ax.plot([x, x + xadj - (0.2 * np.sign(xadj))], [y, y + yadj + 0.2], color='black')
+                    ax.plot(
+                        [x, x + xadj - (0.2 * np.sign(xadj))],
+                        [y, y + yadj + 0.2],
+                        color='black',
+                    )
                 elif ha == 'center':
-                    ax.plot([x, x + xadj - (0.2 * np.sign(xadj))], [y, y + yadj - 0.2], color='black')
+                    ax.plot(
+                        [x, x + xadj - (0.2 * np.sign(xadj))],
+                        [y, y + yadj - 0.2],
+                        color='black',
+                    )
                     if yadj < 0:
-                        print('Warning: ha=center and negative y adjustment are not supported.')
+                        print(
+                            'Warning: ha=center and negative y adjustment are not supported.',
+                        )
                 else:
                     assert 1 == 0, 'Invalid value of ha.'  # noqa: PLR0133
             ax.annotate(xy=(x + xadj, y + yadj), text=text, ha=ha)
@@ -339,7 +390,13 @@ def plot_map(
     show=True,
     shared_scale_quantiles=(0, 1),
     polygons=None,
+    row_label_rotation=90,
+    row_label_scale=1.33,
+    row_label_offset=0.03,
+    row_label_adjust=0.02,
     letter_labels=False,
+    cbar_extend='neither',
+    title_inset_pos='upper',
     **kwargs,
 ):
     """Plot data on a map.
@@ -367,10 +424,14 @@ def plot_map(
         xlims: x limits.
         ylims: y limits.
         show: Show the map?
+        row_label_rotation: Rotation for row labels.
+        row_label_scale: Scale factor for gap between row labels.
+        row_label_offset: Offset for first row label.
+        row_label_adjust: Adjust setting for row label space on left of plot.
         shared_scale_quantiles: Quantiles for a shared scale.
         polygon: If specified, polygons to put on each map.
         letter_labels: Use a letter to label each subplot?
-        kwargs: Extra arguments to plot_map_to_ax.
+        cbar_extend: Extend argument to colorbar().
         col_labels: Labels for each column.
         dat_proj: Data projection.
         disp_proj: Display projection.
@@ -380,6 +441,11 @@ def plot_map(
         nrows: Number of rows.
         polygons: Polygons to overplot.
         row_labels: Labels for each row.
+        shared_scale_quantiles: Quantiles to use in the shared scale.
+        ticks_bottom: Display bottom ticks?
+        ticks_left: Display left ticks?
+        title_inset_pos: Position for inset title.
+        kwargs: Extra arguments to plot_map_to_ax.
         ticks_bottom: Include bottom ticks?
         ticks_left: Include left ticks?
 
@@ -414,12 +480,13 @@ def plot_map(
             xlims=xlims,
             ylims=ylims,
             polygons=polygons,
+            cbar_extend=cbar_extend,
             **kwargs,
         )
     else:
         assert ncols * nrows >= len(dat), 'Not enough cols/rows to fit all plots.'
 
-        if share_scale:
+        if share_scale and colour_scale is None:
             all_vals = np.array([])
 
             for d in dat:
@@ -464,7 +531,8 @@ def plot_map(
                 dat_proj=proj,
                 disp_proj=disp_proj,
                 title=ax_title,
-                colour_scale=colour_scale,
+                colour_scale=colour_scale[i] if isinstance(colour_scale, list) else colour_scale,
+                cbar_extend=cbar_extend[i] if isinstance(cbar_extend, list) else cbar_extend,
                 cbar_pad=cbar_pad,
                 cbar_ticks=cbar_ticks,
                 tick_labels=tick_labels,
@@ -476,6 +544,7 @@ def plot_map(
                 ticks_bottom=tb,
                 polygons=ax_poly,
                 left_title=left_title,
+                title_inset_pos=title_inset_pos[i] if isinstance(title_inset_pos, list) else title_inset_pos,
                 **kwargs,
             )
 
@@ -488,7 +557,18 @@ def plot_map(
             cbar_ax = fig.add_axes([cbar_adjust + cbar_pad, 0.23, 0.02, 0.55])
             fmt = mticker.ScalarFormatter(useOffset=False, useMathText=True)
             fmt.set_powerlimits((-4, 6))
-            _ = fig.colorbar(im, ax=ax, cax=cbar_ax, ticks=cbar_ticks, label=scale_label, format=fmt)
+            cb = fig.colorbar(
+                im,
+                ax=ax,
+                cax=cbar_ax,
+                ticks=cbar_ticks,
+                label=scale_label,
+                format=fmt,
+                extend=cbar_extend,
+            )
+            if tick_labels is not None:
+                assert len(tick_labels) == len(cbar_ticks), 'Labels and ticks must have same length'
+                cb.ax.set_yticklabels(tick_labels)
 
         if col_labels is not None or row_labels is not None:
             for a in ax.flat:
@@ -500,13 +580,23 @@ def plot_map(
                     a.set_title(lab, fontsize=plt.rcParams['font.size'])
 
             if row_labels is not None:
-                fig.subplots_adjust(left=0.02)
-                lab_ax = fig.add_axes([0, 0.11, 0.02, 0.78], autoscale_on=True)
+                fig.subplots_adjust(left=row_label_adjust)
+                lab_ax = fig.add_axes(
+                    [0, 0.11, row_label_adjust, 0.78],
+                    autoscale_on=True,
+                )
                 lab_ax.axis('off')
 
                 for i, lab in enumerate(row_labels):
-                    p = 0.03 + (i / len(row_labels)) * 1.33
-                    lab_ax.annotate(lab, xy=(0.5, 1 - p), rotation=90, xycoords='axes fraction', ha='center')
+                    p = row_label_offset + (i / len(row_labels)) * row_label_scale
+                    lab_ax.annotate(
+                        lab,
+                        xy=(0.5, 1 - p),
+                        rotation=row_label_rotation,
+                        xycoords='axes fraction',
+                        ha='center',
+                        va='center',
+                    )
 
     if file is not None:
         plt.savefig(fname=file, dpi=300, bbox_inches='tight')
