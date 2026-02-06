@@ -576,7 +576,7 @@ def plot_map(
 
             if col_labels is not None:
                 axes = ax if ax.ndim == 1 else ax[0, :]
-                for a, lab in zip(axes, col_labels):
+                for a, lab in zip(axes, col_labels, strict=False):
                     a.set_title(lab, fontsize=plt.rcParams['font.size'])
 
             if row_labels is not None:
@@ -606,5 +606,7 @@ def plot_map(
         plt.close()
     elif show:
         plt.show()
+    else:
+        plt.close()
 
-    return ax
+    return fig, ax
