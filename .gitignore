@@ -6,7 +6,7 @@ __pycache__/
 # C extensions
 *.so
 
-demo_data.nc
+data/demo_data.nc
 
 # Distribution / packaging
 .Python
