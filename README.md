@@ -7,11 +7,11 @@ A [demo notebook](demo/plotmap_demo.ipynb) shows some examples of the code's use
 
 It is simple to create plots with shared axes and scales:
 
-![](example_1.png)
+![](demo/example_1.png)
 
 And simple to adjust output projections.
 
-![](example_2.png)
+![](demo/example_2.png)
 
 By Tim Raupach <t.raupach@unsw.edu.au>.\
 Released under [CC-BY-NC 4.0](LICENSE).
