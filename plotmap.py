@@ -83,6 +83,7 @@ def plot_map_to_ax(
     pts=None,
     left_title=None,
     cbar_extend='neither',
+    set_global=False,
 ):
     """Plot data on a map to a specified plot axis object.
 
@@ -136,6 +137,7 @@ def plot_map_to_ax(
         left_title: Put titles to left instead of centre?
         pts: Extra points to plot.
         cbar_extend: colorbar extend argument.
+        set_global: Set the axis limits to global?
 
     """
     col_min = None
@@ -357,6 +359,9 @@ def plot_map_to_ax(
                     assert 1 == 0, 'Invalid value of ha.'  # noqa: PLR0133
             ax.annotate(xy=(x + xadj, y + yadj), text=text, ha=ha)
 
+    if set_global:
+        ax.set_global()
+
     return res
 
 
@@ -498,6 +503,8 @@ def plot_map(
             )
             assert not (np.isnan(colour_scale[0]) or np.isnan(colour_scale[1])), 'share_scale cannot be used with subplots missing data.'
 
+        local_letters = letters.copy()
+
         for i, d in enumerate(dat):
             ax_title = None
             if title is not None:
@@ -522,7 +529,7 @@ def plot_map(
 
             left_title = None
             if letter_labels:
-                left_title = letters.pop(0)
+                left_title = local_letters.pop(0)
 
             im = plot_map_to_ax(
                 dat=d,
