@@ -14,4 +14,4 @@ And simple to adjust output projections.
 ![](example_2.png)
 
 By Tim Raupach <t.raupach@unsw.edu.au>.\
-Released under [CC-BY-NC 4.0.](LICENSE).
+Released under [CC-BY-NC 4.0](LICENSE).
