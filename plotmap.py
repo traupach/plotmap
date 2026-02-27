@@ -131,7 +131,6 @@ def plot_map_to_ax(
         num_contours: Number of contours to draw (default: 10).
         polygons: If specified, draw each polygon onto the plot.
         polygon_colour: Colour for polygons.
-        hatch: Hatching to use for stippling ('.' for scatterplot, '//' etc for contour hatching).
         dat_proj: The data projection.
         disp_proj: Projection to plot in.
         left_title: Put titles to left instead of centre?
